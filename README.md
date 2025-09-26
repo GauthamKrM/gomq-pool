@@ -19,7 +19,7 @@ The project demonstrates how to build a pool of concurrent consumers that handle
 ```text
 +------------+        +--------------------+        +------------+
 | Producer(s)| -----> | Message Broker     | -----> | Consumer(s)|
-|  (Go)      |        | (RabbitMQ/Kafka)   |        |   (Go)     |
+|  (Go)      |        | (RabbitMQ)         |        |   (Go)     |
 +------------+        +--------------------+        +------------+
                            |                     \
                            |                      \
