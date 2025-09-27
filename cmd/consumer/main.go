@@ -1,9 +1,16 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"gomq-pool/config"
+	"gomq-pool/internal/consumer"
+	"gomq-pool/internal/mq"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -15,46 +22,41 @@ func failOnError(err error, msg string) {
 }
 
 func main() {
+	// load config
 	cfg, err := config.LoadConfig()
 	failOnError(err, "Failed to load the env")
 
-	conn, err := amqp.Dial(cfg.RabbitMQ.URL)
+	// top-level context cancels on SIGINT/SIGTERM
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// connect to RabbitMQ with retry + backoff
+	r, err := mq.NewRabbitMQ(ctx, cfg.RabbitMQ.URL, cfg.RabbitMQ.PrefetchCount)
 	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
+	defer r.Close()
 
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
-
-	q, err := ch.QueueDeclare(
-		cfg.RabbitMQ.Queue, // name
-		false,              // durable
-		false,              // delete when unused
-		false,              // exclusive
-		false,              // no-wait
-		nil,                // arguments
-	)
+	// declare queue (configurable durable/autodelete)
+	_, err = r.DeclareQueue(cfg.RabbitMQ.Queue, false, false)
 	failOnError(err, "Failed to declare a queue")
 
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		true,   // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	failOnError(err, "Failed to register a consumer")
+	msgs, err := r.Consume(cfg.RabbitMQ.Queue, false)
+	failOnError(err, "failed to start consuming")
 
-	forever := make(chan struct{})
+	handler := func(ctx context.Context, d amqp.Delivery) error {
+		log.Printf("handler: received message: %s", string(d.Body))
+		// simulate work
+		time.Sleep(100 * time.Millisecond)
+		return nil // success -> Ack
+	}
 
-	go func() {
-		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
-		}
-	}()
+	// start worker pool
+	pool := consumer.NewPool(ctx, cfg.Consumer.PoolSize, msgs, handler, cfg.Consumer.WorkerTimeout)
 
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-	<-forever
+	// wait until shutdown signal
+	<-ctx.Done()
+	log.Println("main: signal received, stopping pool...")
+
+	// stop workers gracefully
+	pool.Stop()
+	log.Println("main: shutdown complete")
 }

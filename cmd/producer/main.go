@@ -5,8 +5,7 @@ import (
 	"log"
 
 	"gomq-pool/config"
-
-	amqp "github.com/rabbitmq/amqp091-go"
+	"gomq-pool/internal/mq"
 )
 
 func failOnError(err error, msg string) {
@@ -19,37 +18,19 @@ func main() {
 	cfg, err := config.LoadConfig()
 	failOnError(err, "Failed to load the env")
 
-	conn, err := amqp.Dial(cfg.RabbitMQ.URL)
-	failOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
-
-	ch, err := conn.Channel()
-	failOnError(err, "Failed to open a channel")
-	defer ch.Close()
-
-	q, err := ch.QueueDeclare(
-		cfg.RabbitMQ.Queue, // name
-		false,              // durable
-		false,              // delete when unused
-		false,              // exclusive
-		false,              // no-wait
-		nil,                // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
-
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Producer.PublishTimeout)
 	defer cancel()
 
-	body := "Hello from Producer!"
-	err = ch.PublishWithContext(ctx,
-		"",     // exchange
-		q.Name, // routing key
-		false,  // mandatory
-		false,  // immediate
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(body),
-		})
-	failOnError(err, "Failed to publish a message")
+	r, err := mq.NewRabbitMQ(ctx, cfg.RabbitMQ.URL, cfg.RabbitMQ.PrefetchCount)
+	failOnError(err, "Failed to connect to RabbitMQ")
+	defer r.Close()
+
+	_, err = r.DeclareQueue(cfg.RabbitMQ.Queue, false, false)
+	failOnError(err, "Failed to declare queue")
+
+	body := []byte("Hello from Producer!")
+	err = r.PublishWithContext(ctx, cfg.RabbitMQ.Queue, body)
+	failOnError(err, "Failed to publish message")
+
 	log.Printf(" [x] Sent %s\n", body)
 }
