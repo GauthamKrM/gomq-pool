@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"log"
-	"time"
+
+	"gomq-pool/config"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -15,7 +16,10 @@ func failOnError(err error, msg string) {
 }
 
 func main() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	cfg, err := config.LoadConfig()
+	failOnError(err, "Failed to load the env")
+
+	conn, err := amqp.Dial(cfg.RabbitMQ.URL)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
@@ -24,16 +28,16 @@ func main() {
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"test_queue", // name
-		false,        // durable
-		false,        // delete when unused
-		false,        // exclusive
-		false,        // no-wait
-		nil,          // arguments
+		cfg.RabbitMQ.Queue, // name
+		false,              // durable
+		false,              // delete when unused
+		false,              // exclusive
+		false,              // no-wait
+		nil,                // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Producer.PublishTimeout)
 	defer cancel()
 
 	body := "Hello from Producer!"
