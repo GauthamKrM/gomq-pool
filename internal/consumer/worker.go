@@ -12,7 +12,7 @@ import (
 // HandleFunc processes a single message
 // return nil -> success (Ack)
 // return non-nil -> failure (Nack without requeue for now)
-type HandleFunc func(ctx context.Context, d amqp.Delivery) error
+type HandleFunc func(ctx context.Context, workerID int, d amqp.Delivery) error
 
 type Worker struct {
 	id      int
@@ -48,7 +48,7 @@ func (w *Worker) Start(ctx context.Context) {
 				}
 
 				msgCtx, cancel := context.WithTimeout(ctx, w.timeout)
-				err := w.handler(msgCtx, d)
+				err := w.handler(msgCtx, w.id, d)
 				cancel()
 
 				if err != nil {

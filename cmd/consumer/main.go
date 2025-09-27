@@ -49,8 +49,9 @@ func main() {
 	msgs, err := r.Consume(cfg.RabbitMQ.Queue, false)
 	failOnError(err, "failed to start consuming")
 
-	handler := func(ctx context.Context, d amqp.Delivery) error {
+	handler := func(ctx context.Context, workerID int, d amqp.Delivery) error {
 		slog.Info("handler: received message",
+			"worker", workerID,
 			"body", string(d.Body))
 		// simulate work
 		time.Sleep(100 * time.Millisecond)
