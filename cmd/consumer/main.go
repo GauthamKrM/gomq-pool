@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,11 +17,18 @@ import (
 
 func failOnError(err error, msg string) {
 	if err != nil {
-		log.Panicf("%s: %s", msg, err)
+		slog.Error(msg, "error", err)
+		panic(err)
 	}
 }
 
 func main() {
+	logger := slog.New(slog.NewTextHandler(
+		os.Stdout,
+		&slog.HandlerOptions{Level: slog.LevelInfo},
+	))
+	slog.SetDefault(logger)
+
 	// load config
 	cfg, err := config.LoadConfig()
 	failOnError(err, "Failed to load the env")
@@ -43,7 +50,8 @@ func main() {
 	failOnError(err, "failed to start consuming")
 
 	handler := func(ctx context.Context, d amqp.Delivery) error {
-		log.Printf("handler: received message: %s", string(d.Body))
+		slog.Info("handler: received message",
+			"body", string(d.Body))
 		// simulate work
 		time.Sleep(100 * time.Millisecond)
 		return nil // success -> Ack
@@ -54,9 +62,9 @@ func main() {
 
 	// wait until shutdown signal
 	<-ctx.Done()
-	log.Println("main: signal received, stopping pool...")
+	slog.Info("main: signal received, stopping pool...")
 
 	// stop workers gracefully
 	pool.Stop()
-	log.Println("main: shutdown complete")
+	slog.Info("main: shutdown complete")
 }

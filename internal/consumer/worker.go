@@ -2,7 +2,7 @@ package consumer
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -35,15 +35,15 @@ func NewWorker(id int, msgs <-chan amqp.Delivery, handler HandleFunc, timeout ti
 func (w *Worker) Start(ctx context.Context) {
 	go func() {
 		defer w.wg.Done()
-		log.Printf("worker-%d: started", w.id)
+		slog.Info("worker started", "workerID", w.id)
 		for {
 			select {
 			case <-ctx.Done():
-				log.Printf("worker-%d: context done, exiting", w.id)
+				slog.Info("worker exiting (context done)", "workerID", w.id)
 				return
 			case d, ok := <-w.msgs:
 				if !ok {
-					log.Printf("worker-%d: messages channel closed, exiting", w.id)
+					slog.Info("worker exiting (messages channel closed)", "workerID", w.id)
 					return
 				}
 
@@ -53,15 +53,15 @@ func (w *Worker) Start(ctx context.Context) {
 
 				if err != nil {
 					// TODO: Phase 3 will replace this with retry logic.
-					log.Printf("worker-%d: handler error: %v", w.id, err)
+					slog.Error("handler error", "workerID", w.id, "error", err)
 					if nackErr := d.Nack(false, false); nackErr != nil {
-						log.Printf("worker-%d: nack failed: %v", w.id, nackErr)
+						slog.Error("nack failed", "workerID", w.id, "error", nackErr)
 					}
 					continue
 				}
 				if ackErr := d.Ack(false); ackErr != nil {
 					// ack failed - log and continue
-					log.Printf("worker-%d: ack failed: %v", w.id, ackErr)
+					slog.Error("ack failed", "workerID", w.id, "error", ackErr)
 				}
 			}
 		}

@@ -2,7 +2,8 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
+	"os"
 
 	"gomq-pool/config"
 	"gomq-pool/internal/mq"
@@ -10,11 +11,18 @@ import (
 
 func failOnError(err error, msg string) {
 	if err != nil {
-		log.Panicf("%s: %s", msg, err)
+		slog.Error(msg, "error", err)
+		panic(err)
 	}
 }
 
 func main() {
+	logger := slog.New(slog.NewTextHandler(
+		os.Stdout,
+		&slog.HandlerOptions{Level: slog.LevelInfo},
+	))
+	slog.SetDefault(logger)
+
 	cfg, err := config.LoadConfig()
 	failOnError(err, "Failed to load the env")
 
@@ -32,5 +40,9 @@ func main() {
 	err = r.PublishWithContext(ctx, cfg.RabbitMQ.Queue, body)
 	failOnError(err, "Failed to publish message")
 
-	log.Printf(" [x] Sent %s\n", body)
+	slog.Info(
+		"Message sent",
+		"queue", cfg.RabbitMQ.Queue,
+		"body", string(body),
+	)
 }

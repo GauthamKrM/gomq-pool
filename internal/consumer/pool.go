@@ -2,7 +2,7 @@ package consumer
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -33,7 +33,7 @@ func NewPool(parentCtx context.Context, poolSize int, msgs <-chan amqp.Delivery,
 		w.Start(ctx)
 	}
 	p.started = true
-	log.Printf("consumer pool: started %d workers", poolSize)
+	slog.Info("consumer pool started", "workers", poolSize)
 	return p
 }
 
@@ -44,5 +44,5 @@ func (p *Pool) Stop() {
 	p.cancel()
 	p.wg.Wait()
 	p.started = false
-	log.Printf("consumer pool: stopped")
+	slog.Info("consumer pool: stopped")
 }
