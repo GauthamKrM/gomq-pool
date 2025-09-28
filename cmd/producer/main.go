@@ -7,6 +7,8 @@ import (
 
 	"gomq-pool/config"
 	"gomq-pool/internal/mq"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func failOnError(err error, msg string) {
@@ -33,16 +35,20 @@ func main() {
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer r.Close()
 
-	_, err = r.DeclareQueue(cfg.RabbitMQ.Queue, false, false)
-	failOnError(err, "Failed to declare queue")
+	// ensure exchanges/queues exist (idempotent)
+	failOnError(r.DeclareExchange(cfg.RabbitMQ.MainExchange, "direct", cfg.RabbitMQ.Durable, false), "declare main exchange")
+	q, err := r.DeclareQueue(cfg.RabbitMQ.Queue, cfg.RabbitMQ.Durable, false)
+	failOnError(err, "declare main queue")
+	failOnError(r.BindQueue(q.Name, cfg.RabbitMQ.RoutingKey, cfg.RabbitMQ.MainExchange), "bind main queue")
 
 	body := []byte("Hello from Producer!")
-	err = r.PublishWithContext(ctx, cfg.RabbitMQ.Queue, body)
+	pub := amqp.Publishing{
+		ContentType:  "text/plain",
+		DeliveryMode: amqp.Persistent,
+		Body:         body,
+	}
+	err = r.Publish(ctx, cfg.RabbitMQ.MainExchange, cfg.RabbitMQ.RoutingKey, false, pub)
 	failOnError(err, "Failed to publish message")
 
-	slog.Info(
-		"Message sent",
-		"queue", cfg.RabbitMQ.Queue,
-		"body", string(body),
-	)
+	slog.Info("Message sent", "exchange", cfg.RabbitMQ.MainExchange, "routingKey", cfg.RabbitMQ.RoutingKey, "body", string(body))
 }

@@ -64,6 +64,14 @@ func NewRabbitMQ(ctx context.Context, url string, prefetch int) (*RabbitMQ, erro
 	return &RabbitMQ{conn: conn, ch: ch}, nil
 }
 
+// DeclareExchange creates or connects to an exchange.
+func (r *RabbitMQ) DeclareExchange(name, kind string, durable, autoDelete bool) error {
+	if r == nil || r.ch == nil {
+		return errors.New("channel not initialized")
+	}
+	return r.ch.ExchangeDeclare(name, kind, durable, autoDelete, false, false, nil)
+}
+
 // DeclareQueue creates or connects to a queue with configurable options.
 func (r *RabbitMQ) DeclareQueue(name string, durable, autoDelete bool) (amqp.Queue, error) {
 	if r == nil || r.ch == nil {
@@ -77,6 +85,29 @@ func (r *RabbitMQ) DeclareQueue(name string, durable, autoDelete bool) (amqp.Que
 		false, // no-wait
 		nil,
 	)
+}
+
+// DeclareQueueWithArgs creates or connects to a queue with arguments (e.g., DLX).
+func (r *RabbitMQ) DeclareQueueWithArgs(name string, durable, autoDelete bool, args amqp.Table) (amqp.Queue, error) {
+	if r == nil || r.ch == nil {
+		return amqp.Queue{}, errors.New("channel not initialized")
+	}
+	return r.ch.QueueDeclare(
+		name,
+		durable,
+		autoDelete,
+		false, // exclusive
+		false, // no-wait
+		args,
+	)
+}
+
+// BindQueue binds a queue to an exchange with a routing key.
+func (r *RabbitMQ) BindQueue(queue, key, exchange string) error {
+	if r == nil || r.ch == nil {
+		return errors.New("channel not initialized")
+	}
+	return r.ch.QueueBind(queue, key, exchange, false, nil)
 }
 
 // Consume sets up a consumer on the given queue.
@@ -115,7 +146,7 @@ func (r *RabbitMQ) Close() error {
 	return errors.Join(errs...)
 }
 
-// Publish messages to given queue.
+// PublishWithContext publishes to a queue via the default exchange (backward compatible).
 func (r *RabbitMQ) PublishWithContext(ctx context.Context, queue string, body []byte) error {
 	if r == nil || r.ch == nil {
 		return errors.New("channel not initialized")
@@ -127,7 +158,16 @@ func (r *RabbitMQ) PublishWithContext(ctx context.Context, queue string, body []
 		false, // mandatory
 		false, // immediate
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        body,
+			ContentType:  "text/plain",
+			DeliveryMode: amqp.Persistent,
+			Body:         body,
 		})
+}
+
+// Publish publishes to an exchange with full control over properties.
+func (r *RabbitMQ) Publish(ctx context.Context, exchange, routingKey string, mandatory bool, pub amqp.Publishing) error {
+	if r == nil || r.ch == nil {
+		return errors.New("channel not initialized")
+	}
+	return r.ch.PublishWithContext(ctx, exchange, routingKey, mandatory, false, pub)
 }

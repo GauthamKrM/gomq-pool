@@ -48,21 +48,8 @@ func (w *Worker) Start(ctx context.Context) {
 				}
 
 				msgCtx, cancel := context.WithTimeout(ctx, w.timeout)
-				err := w.handler(msgCtx, w.id, d)
+				_ = w.handler(msgCtx, w.id, d) // handler must Ack/Nack
 				cancel()
-
-				if err != nil {
-					// TODO: Phase 3 will replace this with retry logic.
-					slog.Error("handler error", "workerID", w.id, "error", err)
-					if nackErr := d.Nack(false, false); nackErr != nil {
-						slog.Error("nack failed", "workerID", w.id, "error", nackErr)
-					}
-					continue
-				}
-				if ackErr := d.Ack(false); ackErr != nil {
-					// ack failed - log and continue
-					slog.Error("ack failed", "workerID", w.id, "error", ackErr)
-				}
 			}
 		}
 	}()
