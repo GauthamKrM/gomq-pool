@@ -15,7 +15,7 @@ type RabbitMQ struct {
 	ch   *amqp.Channel
 }
 
-// GetMQ establishes a RabbitMQ connection with retries and backoff.
+// NewRabbitMQ establishes a RabbitMQ connection with retries and backoff.
 func NewRabbitMQ(ctx context.Context, url string, prefetch int) (*RabbitMQ, error) {
 	const attempts = 5
 	backoff := 200 * time.Millisecond
@@ -25,7 +25,7 @@ func NewRabbitMQ(ctx context.Context, url string, prefetch int) (*RabbitMQ, erro
 	var err error
 
 	for i := range attempts {
-		// Respect context cancellation
+		// respect context cancellation
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -144,24 +144,6 @@ func (r *RabbitMQ) Close() error {
 		}
 	}
 	return errors.Join(errs...)
-}
-
-// PublishWithContext publishes to a queue via the default exchange (backward compatible).
-func (r *RabbitMQ) PublishWithContext(ctx context.Context, queue string, body []byte) error {
-	if r == nil || r.ch == nil {
-		return errors.New("channel not initialized")
-	}
-
-	return r.ch.PublishWithContext(ctx,
-		"",    // exchange
-		queue, // routing key
-		false, // mandatory
-		false, // immediate
-		amqp.Publishing{
-			ContentType:  "text/plain",
-			DeliveryMode: amqp.Persistent,
-			Body:         body,
-		})
 }
 
 // Publish publishes to an exchange with full control over properties.
