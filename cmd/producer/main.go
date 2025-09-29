@@ -2,14 +2,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"os"
+	"time"
 
 	"gomq-pool/config"
 	"gomq-pool/internal/mq"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+type ProducerMessage struct {
+	Timestamp time.Time `json:"timestamp"`
+	Message   string    `json:"message"`
+}
 
 func failOnError(err error, msg string) {
 	if err != nil {
@@ -41,7 +48,12 @@ func main() {
 	failOnError(err, "declare main queue")
 	failOnError(r.BindQueue(q.Name, cfg.RabbitMQ.RoutingKey, cfg.RabbitMQ.MainExchange), "bind main queue")
 
-	body := []byte("Hello from Producer!")
+	msg := ProducerMessage{
+		Timestamp: time.Now(),
+		Message:   "Hello from Producer!",
+	}
+	body, err := json.Marshal(msg)
+	failOnError(err, "failed to marshal message to JSON")
 	pub := amqp.Publishing{
 		ContentType:  "text/plain",
 		DeliveryMode: amqp.Persistent,

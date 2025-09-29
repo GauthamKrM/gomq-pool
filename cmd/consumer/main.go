@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -17,6 +18,11 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+type Payload struct {
+	Timestamp time.Time `json:"timestamp"`
+	Message   string    `json:"message"`
+}
 
 func failOnError(err error, msg string) {
 	if err != nil {
@@ -76,6 +82,11 @@ func main() {
 	// business logic
 	// TODO: use context in process
 	process := func(_ context.Context, workerID int, body []byte) error {
+		var msg Payload
+		if err := json.Unmarshal(body, &msg); err != nil {
+			slog.Error("failed to unmarshal message", "worker", workerID, "error", err)
+			return err
+		}
 		slog.Info("process: received message",
 			"worker", workerID,
 			"body", string(body))
