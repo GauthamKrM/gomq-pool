@@ -75,8 +75,9 @@ func main() {
 
 	// business logic
 	// TODO: use context in process
-	process := func(_ context.Context, body []byte) error {
+	process := func(_ context.Context, workerID int, body []byte) error {
 		slog.Info("process: received message",
+			"worker", workerID,
 			"body", string(body))
 		// simulate work
 		time.Sleep(100 * time.Millisecond)
@@ -105,7 +106,7 @@ func main() {
 		}
 
 		// Run business logic
-		if err := process(hctx, d.Body); err != nil {
+		if err := process(hctx, workerID, d.Body); err != nil {
 			// Decide retry vs DLQ
 			if retries < cfg.Consumer.MaxRetries {
 				// Exponential backoff: base * 2^retries
