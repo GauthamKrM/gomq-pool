@@ -4,7 +4,20 @@ services:
     container_name: rbmq
     ports:
       - "5672:5672"
-      - "15672:15672"
+      - "15672:15672" # management UI
+      - "15692:15692" # Prometheus metrics
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    command: >
+      bash -lc "rabbitmq-plugins enable --offline rabbitmq_prometheus && exec rabbitmq-server"
+  
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - rabbitmq

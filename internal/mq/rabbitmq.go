@@ -153,3 +153,17 @@ func (r *RabbitMQ) Publish(ctx context.Context, exchange, routingKey string, man
 	}
 	return r.ch.PublishWithContext(ctx, exchange, routingKey, mandatory, false, pub)
 }
+
+func (r *RabbitMQ) ChannelNotifyClose(c chan *amqp.Error) chan *amqp.Error {
+	if r == nil || r.ch == nil {
+		return nil
+	}
+	return r.ch.NotifyClose(c)
+}
+
+func (r *RabbitMQ) ConnectionNotifyClose(c chan *amqp.Error) chan *amqp.Error {
+	if r == nil || r.conn == nil {
+		return nil
+	}
+	return r.conn.NotifyClose(c)
+}

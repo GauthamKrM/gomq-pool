@@ -14,6 +14,7 @@ import (
 
 	"gomq-pool/config"
 	"gomq-pool/internal/consumer"
+	"gomq-pool/internal/metrics"
 	"gomq-pool/internal/mq"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -46,6 +47,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	if cfg.Consumer.MetricsEnabled {
+		metrics.StartServer(ctx, cfg.Consumer.MetricsBind, cfg.Consumer.MetricsPath, cfg.Consumer.LivePath, cfg.Consumer.ReadyPath)
+	}
+
 	// connect to RabbitMQ with retry + backoff
 	r, err := mq.NewRabbitMQ(ctx, cfg.RabbitMQ.URL, cfg.RabbitMQ.PrefetchCount)
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -75,6 +80,25 @@ func main() {
 	failOnError(err, "declare dlq queue")
 	failOnError(r.BindQueue(dlqQ.Name, cfg.RabbitMQ.DLQQueue, cfg.RabbitMQ.DLQExchange), "bind dlq queue")
 
+	metrics.SetReady(true)
+
+	// watch for AMQP close to switch readiness off
+	go func() {
+		chClose := make(chan *amqp.Error, 1)
+		connClose := make(chan *amqp.Error, 1)
+		_ = r.ChannelNotifyClose(chClose)
+		_ = r.ConnectionNotifyClose(connClose)
+		select {
+		case <-ctx.Done():
+			metrics.SetReady(false)
+			return
+		case <-chClose:
+			metrics.SetReady(false)
+		case <-connClose:
+			metrics.SetReady(false)
+		}
+	}()
+
 	// consume from main queue (manual ack)
 	msgs, err := r.Consume(cfg.RabbitMQ.Queue, false)
 	failOnError(err, "failed to start consuming")
@@ -97,6 +121,9 @@ func main() {
 
 	// Handler with retry + DLQ
 	handler := func(hctx context.Context, workerID int, d amqp.Delivery) error {
+		start := time.Now()
+		cid := metrics.ConsumerIDLabel(workerID)
+		queue := cfg.RabbitMQ.Queue
 		// Extract retry count header (custom), default 0
 		retries := 0
 		if d.Headers != nil {
@@ -140,15 +167,22 @@ func main() {
 				if perr := r.Publish(hctx, cfg.RabbitMQ.RetryExchange, cfg.RabbitMQ.RetryQueue, false, pub); perr != nil {
 					slog.Error("retry publish failed", "worker", workerID, "error", perr)
 					// As a fallback, Nack with requeue=true to avoid message loss
-					_ = d.Nack(false, true)
+					if err := d.Nack(false, true); err != nil {
+						slog.Error("nack failed (retry fallback)", "worker", workerID, "error", err)
+						metrics.IncAckError("nack", queue)
+					}
 					return perr
 				}
 
 				if aerr := d.Ack(false); aerr != nil {
 					slog.Error("ack failed after scheduling retry", "worker", workerID, "error", aerr)
+					metrics.IncAckError("ack", queue)
 				} else {
 					slog.Info("scheduled retry", "worker", workerID, "retries", retries+1, "after", delay.String())
 				}
+				metrics.IncRetry(cid, queue)
+				metrics.IncProcessed(cid, queue, "retry")
+				metrics.ObserveLatency(cid, queue, time.Since(start))
 				return nil
 			}
 
@@ -166,22 +200,32 @@ func main() {
 			if perr := r.Publish(hctx, cfg.RabbitMQ.DLQExchange, cfg.RabbitMQ.DLQQueue, false, pub); perr != nil {
 				slog.Error("dlq publish failed", "worker", workerID, "error", perr)
 				// As a fallback, Nack without requeue to avoid hot loops
-				_ = d.Nack(false, false)
+				if err := d.Nack(false, false); err != nil {
+					slog.Error("nack failed (dlq fallback)", "worker", workerID, "error", err)
+					metrics.IncAckError("nack", queue)
+				}
 				return perr
 			}
 			if aerr := d.Ack(false); aerr != nil {
 				slog.Error("ack failed after DLQ", "worker", workerID, "error", aerr)
+				metrics.IncAckError("ack", queue)
 			} else {
 				slog.Info("moved to DLQ", "worker", workerID, "retries", retries)
 			}
+			metrics.IncDLQ(cid, queue)
+			metrics.IncProcessed(cid, queue, "failed")
+			metrics.ObserveLatency(cid, queue, time.Since(start))
 			return nil
 		}
 
 		// Success: Ack
 		if aerr := d.Ack(false); aerr != nil {
 			slog.Error("ack failed", "worker", workerID, "error", aerr)
+			metrics.IncAckError("ack", queue)
 			return aerr
 		}
+		metrics.IncProcessed(cid, queue, "success")
+		metrics.ObserveLatency(cid, queue, time.Since(start))
 		return nil
 	}
 

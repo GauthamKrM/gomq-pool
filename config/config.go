@@ -36,6 +36,11 @@ type ConsumerConfig struct {
 	WorkerTimeout  time.Duration
 	MaxRetries     int
 	RetryBaseDelay time.Duration
+	MetricsEnabled bool
+	MetricsBind    string
+	MetricsPath    string
+	LivePath       string
+	ReadyPath      string
 }
 
 // LoadConfig reads environment variables and returns a typed Config struct
@@ -82,6 +87,11 @@ func LoadConfig() (*Config, error) {
 			WorkerTimeout:  workerTimeout,
 			MaxRetries:     getEnvInt("CONSUMER_MAX_RETRIES", 3),
 			RetryBaseDelay: retryBaseDelay,
+			MetricsEnabled: getEnvBool("CONSUMER_METRICS_ENABLED", true),
+			MetricsBind:    getEnv("CONSUMER_METRICS_BIND", ":2112"),
+			MetricsPath:    getEnv("CONSUMER_METRICS_PATH", "/metrics"),
+			LivePath:       getEnv("CONSUMER_LIVE_PATH", "/live"),
+			ReadyPath:      getEnv("CONSUMER_READY_PATH", "/ready"),
 		},
 	}
 
