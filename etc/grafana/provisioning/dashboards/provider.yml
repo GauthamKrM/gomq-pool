@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: "Go MQ Consumers"
+    folder: "Go MQ"
+    folderUid: "go_mq_folder"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
+      recurse: true

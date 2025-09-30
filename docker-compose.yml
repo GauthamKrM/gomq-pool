@@ -21,3 +21,23 @@ services:
       - "9090:9090"
     depends_on:
       - rabbitmq
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000" # Grafana UI
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin123"
+    volumes:
+      - ./etc/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./etc/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./etc/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-storage:/var/lib/grafana
+
+volumes:
+  grafana-storage:

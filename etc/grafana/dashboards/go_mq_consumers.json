@@ -1,0 +1,118 @@
+{
+  "title": "Go MQ Consumers",
+  "uid": "go-mq-dashboard",
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "queue",
+        "label": "Queue",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+        "query": "label_values(rabbitmq_detailed_queue_messages, queue)",
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": { "text": "test_queue", "value": "test_queue" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Throughput per Consumer (success/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        {
+          "expr": "sum by (consumer_id) (rate(consumer_messages_total{result=\"success\",queue=\"$queue\"}[5m]))",
+          "legendFormat": "worker {{consumer_id}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Failures and DLQ (events/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        {
+          "expr": "rate(consumer_messages_total{result=\"failed\",queue=\"$queue\"}[5m])",
+          "legendFormat": "failed"
+        },
+        {
+          "expr": "rate(consumer_dlq_total{queue=\"$queue\"}[5m])",
+          "legendFormat": "dlq"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Retries (events/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        {
+          "expr": "rate(consumer_retries_total{queue=\"$queue\"}[5m])",
+          "legendFormat": "retry"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Processing Latency P50/P95/P99 (s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(consumer_processing_seconds_bucket{queue=\"$queue\"}[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(consumer_processing_seconds_bucket{queue=\"$queue\"}[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(consumer_processing_seconds_bucket{queue=\"$queue\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Ack/Nack Errors (events/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        {
+          "expr": "sum by (type) (rate(consumer_ack_errors_total{queue=\"$queue\"}[5m]))",
+          "legendFormat": "{{type}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Main Queue Depth (messages)",
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        {
+          "expr": "rabbitmq_detailed_queue_messages{queue=\"$queue\"}",
+          "legendFormat": "total"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Ready vs Unacked (messages)",
+      "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
+      "targets": [
+        {
+          "expr": "rabbitmq_detailed_queue_messages_ready{queue=\"$queue\"}",
+          "legendFormat": "ready"
+        },
+        {
+          "expr": "rabbitmq_detailed_queue_messages_unacked{queue=\"$queue\"}",
+          "legendFormat": "unacked"
+        }
+      ]
+    }
+  ],
+  "time": { "from": "now-6h", "to": "now" },
+  "tags": ["gomq", "rabbitmq", "prometheus"]
+}

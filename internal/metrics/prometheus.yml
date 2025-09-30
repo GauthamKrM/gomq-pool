@@ -4,7 +4,8 @@ global:
 scrape_configs:
   - job_name: "consumer"
     static_configs:
-      - targets: ["consumer:2112"]
+      - targets: ["host.docker.internal:2112"]
   - job_name: "rabbitmq"
+    metrics_path: /metrics/per-object
     static_configs:
       - targets: ["rbmq:15692"]
