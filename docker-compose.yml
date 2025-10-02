@@ -11,7 +11,7 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
     command: >
       bash -lc "rabbitmq-plugins enable --offline rabbitmq_prometheus && exec rabbitmq-server"
-  
+
   prometheus:
     image: prom/prometheus
     container_name: prometheus
@@ -21,8 +21,6 @@ services:
       - "9090:9090"
     depends_on:
       - rabbitmq
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   grafana:
     image: grafana/grafana
@@ -38,6 +36,24 @@ services:
       - ./etc/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./etc/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-storage:/var/lib/grafana
+  
+  consumer:
+    build:
+      context: .
+      dockerfile: cmd/consumer/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
+
+  producer:
+    build:
+      context: .
+      dockerfile: cmd/producer/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
 
 volumes:
   grafana-storage:
