@@ -113,7 +113,7 @@ func main() {
 		}
 		slog.Info("process: received message",
 			"worker", workerID,
-			"body", string(body))
+			"body", msg.Message)
 		// simulate work
 		time.Sleep(100 * time.Millisecond)
 		return nil // success -> Ack
