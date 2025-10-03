@@ -55,7 +55,7 @@ func main() {
 	body, err := json.Marshal(msg)
 	failOnError(err, "failed to marshal message to JSON")
 	pub := amqp.Publishing{
-		ContentType:  "text/plain",
+		ContentType:  "application/json",
 		DeliveryMode: amqp.Persistent,
 		Body:         body,
 	}
