@@ -12,57 +12,95 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var (
-	msgCounter = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "consumer_messages_total",
-			Help: "Total messages processed by result per consumer",
-		},
-		[]string{"consumer_id", "queue", "result"},
-	)
-	retryCounter = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "consumer_retries_total",
-			Help: "Total retries scheduled by consumer",
-		},
-		[]string{"consumer_id", "queue"},
-	)
-	dlqCounter = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "consumer_dlq_total",
-			Help: "Total messages routed to DLQ by consumer",
-		},
-		[]string{"consumer_id", "queue"},
-	)
-	procHist = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "consumer_processing_seconds",
-			Help:    "Message processing time per consumer",
-			Buckets: prometheus.DefBuckets,
-		},
-		[]string{"consumer_id", "queue"},
-	)
+// Collector defines the interface for all metric recording functions.
+// This allows the RabbitMQHandler to depend on an abstraction, not the concrete Prometheus implementation.
+type Collector interface {
+	IncProcessed(consumerID, queue, result string)
+	IncRetry(consumerID, queue string)
+	IncDLQ(consumerID, queue string)
+	ObserveLatency(consumerID, queue string, d time.Duration)
+	IncAckError(kind, queue string)
+}
 
-	ackErrCounter = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "consumer_ack_errors_total",
-			Help: "Total Ack/Nack errors by type and queue",
-		},
-		[]string{"type", "queue"}, // type: ack|nack
-	)
-)
+// Client implements the Collector interface using Prometheus metrics.
+type Client struct {
+	msgCounter    *prometheus.CounterVec
+	retryCounter  *prometheus.CounterVec
+	dlqCounter    *prometheus.CounterVec
+	procHist      *prometheus.HistogramVec
+	ackErrCounter *prometheus.CounterVec
+}
+
+// Global instance of the metrics client.
+var globalClient *Client
+
+func InitMetrics() {
+	if globalClient != nil {
+		return
+	}
+
+	globalClient = &Client{
+		msgCounter: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "consumer_messages_total",
+				Help: "Total messages processed by result per consumer",
+			},
+			[]string{"consumer_id", "queue", "result"},
+		),
+		retryCounter: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "consumer_retries_total",
+				Help: "Total retries scheduled by consumer",
+			},
+			[]string{"consumer_id", "queue"},
+		),
+		dlqCounter: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "consumer_dlq_total",
+				Help: "Total messages routed to DLQ by consumer",
+			},
+			[]string{"consumer_id", "queue"},
+		),
+		procHist: promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "consumer_processing_seconds",
+				Help:    "Message processing time per consumer",
+				Buckets: prometheus.DefBuckets,
+			},
+			[]string{"consumer_id", "queue"},
+		),
+		ackErrCounter: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "consumer_ack_errors_total",
+				Help: "Total Ack/Nack errors by type and queue",
+			},
+			[]string{"type", "queue"}, // type: ack|nack
+		),
+	}
+}
+
+func GetClient() Collector {
+	if globalClient == nil {
+		InitMetrics()
+	}
+	return globalClient
+}
 
 // exported helpers to record metrics
-func IncProcessed(consumerID, queue, result string) {
-	msgCounter.WithLabelValues(consumerID, queue, result).Inc()
+func (c *Client) IncProcessed(consumerID, queue, result string) {
+	c.msgCounter.WithLabelValues(consumerID, queue, result).Inc()
 }
-func IncRetry(consumerID, queue string) { retryCounter.WithLabelValues(consumerID, queue).Inc() }
-func IncDLQ(consumerID, queue string)   { dlqCounter.WithLabelValues(consumerID, queue).Inc() }
-func ObserveLatency(consumerID, queue string, d time.Duration) {
-	procHist.WithLabelValues(consumerID, queue).Observe(d.Seconds())
+func (c *Client) IncRetry(consumerID, queue string) {
+	c.retryCounter.WithLabelValues(consumerID, queue).Inc()
 }
-func IncAckError(kind, queue string) {
-	ackErrCounter.WithLabelValues(kind, queue).Inc()
+func (c *Client) IncDLQ(consumerID, queue string) {
+	c.dlqCounter.WithLabelValues(consumerID, queue).Inc()
+}
+func (c *Client) ObserveLatency(consumerID, queue string, d time.Duration) {
+	c.procHist.WithLabelValues(consumerID, queue).Observe(d.Seconds())
+}
+func (c *Client) IncAckError(kind, queue string) {
+	c.ackErrCounter.WithLabelValues(kind, queue).Inc()
 }
 
 type Server struct {

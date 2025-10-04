@@ -55,8 +55,10 @@ func main() {
 		DeliveryMode: amqp.Persistent,
 		Body:         body,
 	}
-	err = r.Publish(ctx, cfg.RabbitMQ.MainExchange, cfg.RabbitMQ.RoutingKey, false, pub)
-	failOnError(err, "Failed to publish message")
+	for range 10 {
+		err = r.Publish(ctx, cfg.RabbitMQ.MainExchange, cfg.RabbitMQ.RoutingKey, false, pub)
+		failOnError(err, "Failed to publish message")
 
-	slog.Info("Message sent", "exchange", cfg.RabbitMQ.MainExchange, "routingKey", cfg.RabbitMQ.RoutingKey, "body", string(body))
+		slog.Info("Message sent", "exchange", cfg.RabbitMQ.MainExchange, "routingKey", cfg.RabbitMQ.RoutingKey, "body", string(body))
+	}
 }
