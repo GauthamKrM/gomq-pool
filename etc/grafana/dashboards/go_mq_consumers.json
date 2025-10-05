@@ -36,12 +36,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
       "targets": [
         {
-          "expr": "rate(consumer_messages_total{result=\"failed\",queue=\"$queue\"}[5m])",
-          "legendFormat": "failed"
+        "expr": "sum by (instance) (rate(consumer_messages_total{result=\"failed\",queue=\"$queue\"}[5m]))",
+        "legendFormat": "failed-{{instance}}"
         },
         {
-          "expr": "rate(consumer_dlq_total{queue=\"$queue\"}[5m])",
-          "legendFormat": "dlq"
+        "expr": "sum by (instance) (rate(consumer_dlq_total{queue=\"$queue\"}[5m]))",
+        "legendFormat": "dlq-{{instance}}"
         }
       ]
     },
@@ -51,8 +51,8 @@
       "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
       "targets": [
         {
-          "expr": "rate(consumer_retries_total{queue=\"$queue\"}[5m])",
-          "legendFormat": "retry"
+          "expr": "sum by (instance) (rate(consumer_retries_total{queue=\"$queue\"}[5m]))",
+          "legendFormat": "retry-{{instance}}"
         }
       ]
     },
@@ -81,8 +81,8 @@
       "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
       "targets": [
         {
-          "expr": "sum by (type) (rate(consumer_ack_errors_total{queue=\"$queue\"}[5m]))",
-          "legendFormat": "{{type}}"
+          "expr": "sum by (instance, type) (rate(consumer_ack_errors_total{queue=\"$queue\"}[5m]))",
+          "legendFormat": "{{type}}-{{instance}}"
         }
       ]
     },
