@@ -58,7 +58,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Processing Latency P50/P95/P99 (s) - Aggregated",
+      "title": "Processing Latency P50/P95/P99 (s) - By Priority",
       "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
       "targets": [
         {
