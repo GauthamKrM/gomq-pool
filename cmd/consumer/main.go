@@ -54,7 +54,10 @@ func main() {
 	failOnError(r.DeclareExchange(cfg.RabbitMQ.DLQExchange, "direct", cfg.RabbitMQ.Durable, false), "declare dlq exchange")
 
 	// declare queue (configurable durable/autodelete)
-	mainQ, err := r.DeclareQueue(cfg.RabbitMQ.Queue, cfg.RabbitMQ.Durable, false)
+	mainQArgs := amqp.Table{
+		"x-max-priority": int64(cfg.RabbitMQ.MaxPriority),
+	}
+	mainQ, err := r.DeclareQueueWithArgs(cfg.RabbitMQ.Queue, cfg.RabbitMQ.Durable, false, mainQArgs)
 	failOnError(err, "declare main queue")
 	failOnError(r.BindQueue(mainQ.Name, cfg.RabbitMQ.RoutingKey, cfg.RabbitMQ.MainExchange), "bind main queue")
 

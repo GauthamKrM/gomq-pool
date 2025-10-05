@@ -20,10 +20,10 @@ var instanceName string
 // Collector defines the interface for all metric recording functions.
 // This allows the RabbitMQHandler to depend on an abstraction, not the concrete Prometheus implementation.
 type Collector interface {
-	IncProcessed(consumerID, queue, result string)
+	IncProcessed(consumerID, queue, result, priority string)
 	IncRetry(consumerID, queue string)
 	IncDLQ(consumerID, queue string)
-	ObserveLatency(consumerID, queue string, d time.Duration)
+	ObserveLatency(consumerID, queue string, d time.Duration, priority string)
 	IncAckError(kind, queue string)
 }
 
@@ -53,7 +53,7 @@ func InitMetrics(cfg *config.Config) {
 				Name: "consumer_messages_total",
 				Help: "Total messages processed by result per consumer instance/worker",
 			},
-			[]string{"app_id_hash", "consumer_id", "queue", "result"},
+			[]string{"app_id_hash", "consumer_id", "queue", "result", "priority"},
 		),
 		retryCounter: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -75,7 +75,7 @@ func InitMetrics(cfg *config.Config) {
 				Help:    "Message processing time per consumer instance/worker",
 				Buckets: prometheus.DefBuckets,
 			},
-			[]string{"app_id_hash", "consumer_id", "queue"},
+			[]string{"app_id_hash", "consumer_id", "queue", "priority"},
 		),
 		ackErrCounter: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -96,8 +96,8 @@ func GetClient() Collector {
 }
 
 // exported helpers to record metrics
-func (c *Client) IncProcessed(consumerID, queue, result string) {
-	c.msgCounter.WithLabelValues(instanceName, consumerID, queue, result).Inc()
+func (c *Client) IncProcessed(consumerID, queue, result, priority string) {
+	c.msgCounter.WithLabelValues(instanceName, consumerID, queue, result, priority).Inc()
 }
 func (c *Client) IncRetry(consumerID, queue string) {
 	c.retryCounter.WithLabelValues(instanceName, consumerID, queue).Inc()
@@ -105,8 +105,8 @@ func (c *Client) IncRetry(consumerID, queue string) {
 func (c *Client) IncDLQ(consumerID, queue string) {
 	c.dlqCounter.WithLabelValues(instanceName, consumerID, queue).Inc()
 }
-func (c *Client) ObserveLatency(consumerID, queue string, d time.Duration) {
-	c.procHist.WithLabelValues(instanceName, consumerID, queue).Observe(d.Seconds())
+func (c *Client) ObserveLatency(consumerID, queue string, d time.Duration, priority string) {
+	c.procHist.WithLabelValues(instanceName, consumerID, queue, priority).Observe(d.Seconds())
 }
 func (c *Client) IncAckError(kind, queue string) {
 	c.ackErrCounter.WithLabelValues(kind, queue).Inc()

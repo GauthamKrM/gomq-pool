@@ -49,10 +49,11 @@ func (h *RabbitMQHandler) Handle(hctx context.Context, workerID int, d amqp.Deli
 	start := time.Now()
 	cid := metrics.ConsumerIDLabel(workerID)
 	queue := h.cfg.RabbitMQ.Queue
+	priority := strconv.Itoa(int(d.Priority))
 
 	// Use defer to observe latency once, covering all exit paths (success, retry, DLQ).
 	defer func() {
-		h.metrics.ObserveLatency(cid, queue, time.Since(start))
+		h.metrics.ObserveLatency(cid, queue, time.Since(start), priority)
 	}()
 
 	// 1. Extract retry count
@@ -92,7 +93,7 @@ func (h *RabbitMQHandler) Handle(hctx context.Context, workerID int, d amqp.Deli
 		h.metrics.IncAckError("ack", queue)
 		return aerr
 	}
-	h.metrics.IncProcessed(cid, queue, "success")
+	h.metrics.IncProcessed(cid, queue, "success", priority)
 	return nil
 }
 
@@ -151,7 +152,7 @@ func (h *RabbitMQHandler) handleRetry(hctx context.Context, workerID int, d amqp
 	}
 	slog.Info("scheduled retry", "worker", workerID, "retries", retries+1, "after", delay.String())
 	h.metrics.IncRetry(cid, queue)
-	h.metrics.IncProcessed(cid, queue, "retry")
+	h.metrics.IncProcessed(cid, queue, "retry", strconv.Itoa(int(d.Priority)))
 	return nil
 }
 
@@ -185,6 +186,6 @@ func (h *RabbitMQHandler) handleDLQ(hctx context.Context, workerID int, d amqp.D
 	}
 	slog.Info("moved to DLQ", "worker", workerID, "retries", retries)
 	h.metrics.IncDLQ(cid, queue)
-	h.metrics.IncProcessed(cid, queue, "failed")
+	h.metrics.IncProcessed(cid, queue, "failed", strconv.Itoa(int(d.Priority)))
 	return nil
 }

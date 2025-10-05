@@ -3,7 +3,9 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"gomq-pool/internal/types"
@@ -28,5 +30,10 @@ func (p *DefaultProcessor) Process(ctx context.Context, workerID int, body []byt
 		"body", msg.Data)
 	// simulate work
 	time.Sleep(100 * time.Millisecond)
+	// failure simulation
+	if strings.Contains(msg.Data, "Error") {
+		slog.Warn("process: simulating business logic failure", "worker", workerID, "data", msg.Data)
+		return errors.New("simulated business error: unable to process message data")
+	}
 	return nil // success -> Ack
 }

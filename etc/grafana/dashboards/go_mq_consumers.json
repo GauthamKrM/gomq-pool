@@ -62,16 +62,16 @@
       "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(consumer_processing_seconds_bucket{queue=\"$queue\"}[5m])))",
-          "legendFormat": "p50"
+          "expr": "histogram_quantile(0.50, sum by (le, priority) (rate(consumer_processing_seconds_bucket{queue=\"$queue\"}[5m])))",
+          "legendFormat": "p50-{{priority}}"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(consumer_processing_seconds_bucket{queue=\"$queue\"}[5m])))",
-          "legendFormat": "p95"
+          "expr": "histogram_quantile(0.95, sum by (le, priority) (rate(consumer_processing_seconds_bucket{queue=\"$queue\"}[5m])))",
+          "legendFormat": "p95-{{priority}}"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(consumer_processing_seconds_bucket{queue=\"$queue\"}[5m])))",
-          "legendFormat": "p99"
+          "expr": "histogram_quantile(0.99, sum by (le, priority) (rate(consumer_processing_seconds_bucket{queue=\"$queue\"}[5m])))",
+          "legendFormat": "p99-{{priority}}"
         }
       ]
     },

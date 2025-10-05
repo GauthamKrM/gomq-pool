@@ -25,6 +25,7 @@ type RabbitMQConfig struct {
 	RetryQueue    string
 	DLQQueue      string
 	Durable       bool
+	MaxPriority   int
 }
 
 type ProducerConfig struct {
@@ -81,6 +82,8 @@ func LoadConfig() (*Config, error) {
 			DLQQueue:   getEnv("RABBITMQ_DLQ_QUEUE", queue+".dlq"),
 
 			Durable: getEnvBool("RABBITMQ_DURABLE", true),
+
+			MaxPriority: getEnvInt("RABBITMQ_MAX_PRIORITY", 10),
 		},
 		Producer: ProducerConfig{
 			PublishTimeout: publishTimout,
