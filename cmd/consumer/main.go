@@ -37,7 +37,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	metrics.InitMetrics()
+	metrics.InitMetrics(cfg)
 	metricsClient := metrics.GetClient()
 
 	if cfg.Consumer.MetricsEnabled {

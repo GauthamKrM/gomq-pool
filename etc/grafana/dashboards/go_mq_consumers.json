@@ -21,12 +21,12 @@
   "panels": [
     {
       "type": "timeseries",
-      "title": "Throughput per Consumer (success/s)",
+      "title": "Total Throughput (success/s)",
       "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
       "targets": [
         {
-          "expr": "sum by (consumer_id) (rate(consumer_messages_total{result=\"success\",queue=\"$queue\"}[5m]))",
-          "legendFormat": "worker {{consumer_id}}"
+          "expr": "sum by (instance) (rate(consumer_messages_total{result=\"success\",queue=\"$queue\"}[5m]))",
+          "legendFormat": "consumer-{{instance}}" 
         }
       ]
     },
@@ -58,7 +58,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Processing Latency P50/P95/P99 (s)",
+      "title": "Processing Latency P50/P95/P99 (s) - Aggregated",
       "datasource": { "type": "prometheus", "uid": "prometheus_ds" },
       "targets": [
         {

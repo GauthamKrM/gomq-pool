@@ -7,10 +7,15 @@ import (
 	"strconv"
 	"time"
 
+	"gomq-pool/config"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+// Global instance name/ID, unique to the running container/process
+var instanceName string
 
 // Collector defines the interface for all metric recording functions.
 // This allows the RabbitMQHandler to depend on an abstraction, not the concrete Prometheus implementation.
@@ -34,40 +39,43 @@ type Client struct {
 // Global instance of the metrics client.
 var globalClient *Client
 
-func InitMetrics() {
+// InitMetrics initializes and registers the Prometheus metrics.
+func InitMetrics(cfg *config.Config) {
 	if globalClient != nil {
 		return
 	}
+
+	instanceName = cfg.Consumer.ConsumerName
 
 	globalClient = &Client{
 		msgCounter: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "consumer_messages_total",
-				Help: "Total messages processed by result per consumer",
+				Help: "Total messages processed by result per consumer instance/worker",
 			},
-			[]string{"consumer_id", "queue", "result"},
+			[]string{"app_id_hash", "consumer_id", "queue", "result"},
 		),
 		retryCounter: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "consumer_retries_total",
-				Help: "Total retries scheduled by consumer",
+				Help: "Total retries scheduled by consumer instance/worker",
 			},
-			[]string{"consumer_id", "queue"},
+			[]string{"app_id_hash", "consumer_id", "queue"},
 		),
 		dlqCounter: promauto.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "consumer_dlq_total",
-				Help: "Total messages routed to DLQ by consumer",
+				Help: "Total messages routed to DLQ by consumer instance/worker",
 			},
-			[]string{"consumer_id", "queue"},
+			[]string{"app_id_hash", "consumer_id", "queue"},
 		),
 		procHist: promauto.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "consumer_processing_seconds",
-				Help:    "Message processing time per consumer",
+				Help:    "Message processing time per consumer instance/worker",
 				Buckets: prometheus.DefBuckets,
 			},
-			[]string{"consumer_id", "queue"},
+			[]string{"app_id_hash", "consumer_id", "queue"},
 		),
 		ackErrCounter: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -81,23 +89,24 @@ func InitMetrics() {
 
 func GetClient() Collector {
 	if globalClient == nil {
-		InitMetrics()
+		slog.Error("GetClient called before InitMetrics!")
+		panic("Metrics client not initialized. Call InitMetrics first.")
 	}
 	return globalClient
 }
 
 // exported helpers to record metrics
 func (c *Client) IncProcessed(consumerID, queue, result string) {
-	c.msgCounter.WithLabelValues(consumerID, queue, result).Inc()
+	c.msgCounter.WithLabelValues(instanceName, consumerID, queue, result).Inc()
 }
 func (c *Client) IncRetry(consumerID, queue string) {
-	c.retryCounter.WithLabelValues(consumerID, queue).Inc()
+	c.retryCounter.WithLabelValues(instanceName, consumerID, queue).Inc()
 }
 func (c *Client) IncDLQ(consumerID, queue string) {
-	c.dlqCounter.WithLabelValues(consumerID, queue).Inc()
+	c.dlqCounter.WithLabelValues(instanceName, consumerID, queue).Inc()
 }
 func (c *Client) ObserveLatency(consumerID, queue string, d time.Duration) {
-	c.procHist.WithLabelValues(consumerID, queue).Observe(d.Seconds())
+	c.procHist.WithLabelValues(instanceName, consumerID, queue).Observe(d.Seconds())
 }
 func (c *Client) IncAckError(kind, queue string) {
 	c.ackErrCounter.WithLabelValues(kind, queue).Inc()

@@ -1,13 +1,26 @@
 global:
   scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: "consumer"
+  # 1. Scrape the Prometheus server itself (default)
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ["consumer:2112"]
+      - targets: ['localhost:9090']
+
+  # 2. Scrape RabbitMQ Management/Prometheus endpoint
   - job_name: "rabbitmq"
     metrics_path: /metrics/detailed
     params:
       family: [queue_coarse_metrics, queue_consumer_count]
     static_configs:
       - targets: ["rbmq:15692"]
+
+  # 3. Scrape the Go Consumer instances (Prometheus service discovery)
+  - job_name: "consumer"
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names:
+          - 'consumer'
+        type: 'A'
+        port: 2112

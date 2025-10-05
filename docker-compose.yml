@@ -21,6 +21,7 @@ services:
       - "9090:9090"
     depends_on:
       - rabbitmq
+      - consumer
 
   grafana:
     image: grafana/grafana
@@ -43,8 +44,15 @@ services:
       dockerfile: cmd/consumer/Dockerfile
     env_file:
       - .env
+    ports:
+      - "2112"
     depends_on:
       - rabbitmq
+    deploy:
+      replicas: ${CONSUMER_REPLICAS:-3}
+      resources:
+        limits:
+          memory: 256m
 
   producer:
     build:

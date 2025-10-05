@@ -41,6 +41,7 @@ type ConsumerConfig struct {
 	MetricsPath    string
 	LivePath       string
 	ReadyPath      string
+	ConsumerName   string
 }
 
 // LoadConfig reads environment variables and returns a typed Config struct
@@ -62,6 +63,8 @@ func LoadConfig() (*Config, error) {
 
 	queue := getEnv("RABBITMQ_QUEUE", "test_queue")
 	routingKey := getEnv("RABBITMQ_ROUTING_KEY", queue)
+
+	hostname, _ := os.Hostname()
 
 	cfg := &Config{
 		RabbitMQ: RabbitMQConfig{
@@ -92,6 +95,7 @@ func LoadConfig() (*Config, error) {
 			MetricsPath:    getEnv("CONSUMER_METRICS_PATH", "/metrics"),
 			LivePath:       getEnv("CONSUMER_LIVE_PATH", "/live"),
 			ReadyPath:      getEnv("CONSUMER_READY_PATH", "/ready"),
+			ConsumerName:   getEnv("CONSUMER_NAME", hostname),
 		},
 	}
 
