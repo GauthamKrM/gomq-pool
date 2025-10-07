@@ -119,7 +119,6 @@ CONSUMER_POOL_SIZE=5
 WORKER_TIMEOUT=30s
 CONSUMER_MAX_RETRIES=3
 CONSUMER_RETRY_BASE_DELAY=2s
-
 CONSUMER_METRICS_ENABLED=true
 CONSUMER_METRICS_BIND=:2112
 CONSUMER_METRICS_PATH=/metrics
@@ -127,8 +126,6 @@ CONSUMER_LIVE_PATH=/live
 CONSUMER_READY_PATH=/ready
 CONSUMER_REPLICAS=3
 ```
-
----
 
 ### 3. Run the System
 
@@ -152,11 +149,11 @@ You can modify:
 
 ## Accessing Services
 
-| Service               | URL                                              | Credentials      |
-| :-------------------- | :----------------------------------------------- | :--------------- |
-| **RabbitMQ UI**       | [http://localhost:15672](http://localhost:15672) | guest / guest    |
-| **Prometheus**        | [http://localhost:9090](http://localhost:9090)   | —                |
-| **Grafana Dashboard** | [http://localhost:3000](http://localhost:3000)   | admin / admin123 |
+| Service               | URL                                              | Default Credentials      |
+| :-------------------- | :----------------------------------------------- | :----------------------- |
+| **RabbitMQ UI**       | [http://localhost:15672](http://localhost:15672) | guest / guest            |
+| **Prometheus**        | [http://localhost:9090](http://localhost:9090)   | —                        |
+| **Grafana Dashboard** | [http://localhost:3000](http://localhost:3000)   | admin / admin123         |
 
 ---
 
@@ -189,7 +186,7 @@ All dashboards are templated by **queue name** (default: `test_queue`).
 
 ---
 
-## Go Concepts Demonstrated
+## Core Implementation Highlights
 
 * **Goroutines & Channels:** Concurrent worker pool for parallel message handling
 * **Context & Cancellation:** Graceful shutdown and timeout control
