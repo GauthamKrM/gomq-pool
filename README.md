@@ -197,6 +197,12 @@ All dashboards are templated by **queue name** (default: `test_queue`).
 
 ---
 
+## TODO
+
+* **Refactor `internal/mq/rabbitmq.go`:** Separate the generic `RabbitMQ` struct's functionality into dedicated structs, such as `RabbitMQConnector`, `RabbitMQProducer`, and `RabbitMQConsumer`, to improve separation of concerns and adhere to the Single Responsibility Principle.
+
+---
+
 ## Contributing
 
 Contributions, issues, and feature requests are welcome!
