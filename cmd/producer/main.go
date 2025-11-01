@@ -40,21 +40,32 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Producer.PublishTimeout)
 	defer cancel()
 
-	r, err := mq.NewRabbitMQ(ctx, cfg.RabbitMQ.URL, cfg.RabbitMQ.PrefetchCount)
+	// 1. Setup connection
+	connector := mq.NewConnector()
+	err = connector.Connect(ctx, cfg.RabbitMQ.URL)
 	failOnError(err, "Failed to connect to RabbitMQ")
-	defer r.Close()
+	defer connector.Close()
 
-	// ensure exchanges/queues exist (idempotent)
-	failOnError(r.DeclareExchange(cfg.RabbitMQ.MainExchange, "direct", cfg.RabbitMQ.Durable, false), "declare main exchange")
+	conn, err := connector.Connection()
+	failOnError(err, "Failed to get connection from connector")
+
+	// 2. Setup producer
+	producer, err := mq.NewProducer(conn)
+	failOnError(err, "Failed to create producer")
+	defer producer.Close()
+
+	// 3. Idempotetly declare topology
+	failOnError(producer.DeclareExchange(cfg.RabbitMQ.MainExchange, "direct", cfg.RabbitMQ.Durable, false), "declare main exchange")
 	qArgs := amqp.Table{
 		"x-max-priority": int64(cfg.RabbitMQ.MaxPriority),
 	}
-	q, err := r.DeclareQueueWithArgs(cfg.RabbitMQ.Queue, cfg.RabbitMQ.Durable, false, qArgs)
+	q, err := producer.DeclareQueueWithArgs(cfg.RabbitMQ.Queue, cfg.RabbitMQ.Durable, false, qArgs)
 	failOnError(err, "declare main queue")
-	failOnError(r.BindQueue(q.Name, cfg.RabbitMQ.RoutingKey, cfg.RabbitMQ.MainExchange), "bind main queue")
+	failOnError(producer.BindQueue(q.Name, cfg.RabbitMQ.RoutingKey, cfg.RabbitMQ.MainExchange), "bind main queue")
 
 	slog.Info("Starting to publish messages...", "total", totalMessages, "high_priority", highPriorityCount)
 
+	// 4. Publish dummy messages
 	for i := range totalMessages {
 		priority := defaultPriority
 		messageType := "Success Message from Producer"
@@ -78,7 +89,7 @@ func main() {
 			Priority:     priority,
 		}
 
-		err = r.Publish(ctx, cfg.RabbitMQ.MainExchange, cfg.RabbitMQ.RoutingKey, false, pub)
+		err = producer.Publish(ctx, cfg.RabbitMQ.MainExchange, cfg.RabbitMQ.RoutingKey, false, pub)
 		failOnError(err, "Failed to publish message")
 
 		slog.Info("Message sent",
