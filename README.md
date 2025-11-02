@@ -33,10 +33,10 @@ The system design follows a producer–consumer model with message reliability a
                    +----------------+            +------------------+
                                                          |
                                                          v
-                                                 +------------------+
+                                                 +-------------------+
                                                  | Data Visualization|
-                                                 |     (Grafana)    |
-                                                 +------------------+
+                                                 |     (Grafana)     |
+                                                 +-------------------+
 ```
 
 ---
